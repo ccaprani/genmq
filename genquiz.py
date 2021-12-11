@@ -89,7 +89,7 @@ def generic(csvfile):
     return df, keys
 
 
-def gen_files(values, keys, template, delete_temps):
+def gen_files(values, keys, template, delete_temps, pythontex):
     """
     Drives the rendering and compilation process for each row, and
     cleans up the files afterwards.
@@ -119,7 +119,7 @@ def gen_files(values, keys, template, delete_temps):
     render_file(values, keys, template, tmpfile)
 
     try:
-        compile_files(values, tmpfile)
+        compile_files(values, tmpfile, pythontex)
 
     finally:
         if delete_temps:
@@ -135,7 +135,7 @@ def gen_files(values, keys, template, delete_temps):
                 shutil.rmtree(path, onerror=remove_readonly)
 
 
-def compile_files(values, tmpfile):
+def compile_files(values, tmpfile, pythontex=True):
     """
     Generates the Questions and Answers documents for a student
 
@@ -168,8 +168,9 @@ def compile_files(values, tmpfile):
     # This step generates the variables & solutions
     # SHould update to use the Popen function, and evaluate the returned args
     subprocess.call(cmd_pdflatex, shell=True)
-    subprocess.call(cmd_pythontex, shell=True)
-    subprocess.call(cmd_pdflatex, shell=True)
+    if pythontex:
+        subprocess.call(cmd_pythontex, shell=True)
+        subprocess.call(cmd_pdflatex, shell=True)
 
     # file_mask = params.file_mask
     # folder_mask = params.folder_mask
@@ -276,7 +277,8 @@ def main(args):
 
     # Apply function to each row of df
     df.apply(
-        gen_files, axis=1, keys=keys, template=template, delete_temps=args.delete_temps
+        gen_files, axis=1, keys=keys, template=template, 
+        delete_temps=args.delete_temps, pythontex=args.simple
     )
 
     # Now merge the generated XML files
@@ -312,6 +314,15 @@ if __name__ == "__main__":
         "-d",
         "--delete_temps",
         help="Whether or not to delete temporary files",
+        required=False,
+        default=True,
+        action="store_false",
+    )
+
+    parser.add_argument(
+        "-s",
+        "--simple",
+        help="Whether or not template file requires pythontex",
         required=False,
         default=True,
         action="store_false",
