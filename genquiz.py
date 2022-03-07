@@ -83,7 +83,7 @@ def generic(csvfile):
         name rules and play nice with LaTeX)
 
     """
-    df = pd.read_csv(csvfile,dtype=str)
+    df = pd.read_csv(csvfile, dtype=str)
     keys = list(df.columns.values)
 
     return df, keys
@@ -234,9 +234,9 @@ def render_file(values, keys, template, tmpfile):
         outfile.write(document)
 
 
-def merge_xml():
+def merge_xml(delete_temps):
     """
-    Merges all the Moodle quiz xml files in the folder into one, saves the 
+    Merges all the Moodle quiz xml files in the folder into one, saves the
     merged file, and deletes the temporary files.
     """
 
@@ -250,12 +250,13 @@ def merge_xml():
                 base.append(el)
 
     base_xml = ET.ElementTree(base)
-    base_xml.write("genquiz.xml", encoding="utf-8", xml_declaration=True)
+    base_xml.write("genquiz-moodle.xml", encoding="utf-8", xml_declaration=True)
 
-    # Now delete the xml files except for the new one
-    # Note: will delete XML files already in the folder.
-    for f in xml_files:
-        os.remove(f)
+    if delete_temps:
+        # Now delete the xml files except for the new one
+        # Note: will delete XML files already in the folder.
+        for f in xml_files:
+            os.remove(f)
 
     pass
 
@@ -277,12 +278,16 @@ def main(args):
 
     # Apply function to each row of df
     df.apply(
-        gen_files, axis=1, keys=keys, template=template, 
-        delete_temps=args.delete_temps, pythontex=args.simple
+        gen_files,
+        axis=1,
+        keys=keys,
+        template=template,
+        delete_temps=args.delete_temps,
+        pythontex=args.simple,
     )
 
     # Now merge the generated XML files
-    merge_xml()
+    merge_xml(args.delete_temps)
 
     print("")
     print("*** genquiz has finished ***")

@@ -1,4 +1,4 @@
-id,A,B,C,D,text
-1,5,6,11,43,Isaiah
-2,3,4,7,37,Isaac
-3,7,7,14,27,James
+id,A,B,C,D,radius,areatol,area,area2,radius2tol,radius2,text
+1,5,6,11,43,2,0.1,25.1,314,0.1,20,Isaiah
+2,3,4,7,37,3,0.2,56.5,200,0.1,5.6,Isaac
+3,7,7,14,27,4,0.4,100.5,250,0.1,6.3,James
