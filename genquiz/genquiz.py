@@ -16,10 +16,9 @@ import shutil
 import subprocess
 import stat
 import pandas as pd
-import uuid
 
 
-def remove_readonly(func, path, excinfo):
+def remove_readonly(func, path):
     """Attempts to remove a read-only file by changing the permissions"""
     os.chmod(path, stat.S_IWRITE)
     func(path)
@@ -113,13 +112,12 @@ def gen_files(values, keys, template, delete_temps, pythontex):
 
     # Change method of assigning tmpfile names
     tmpfile = next(tempfile._get_candidate_names())
-    # tmpfile = str(uuid.uuid4())
 
     # Create tex file
     render_file(values, keys, template, tmpfile)
 
     try:
-        compile_files(values, tmpfile, pythontex)
+        compile_files(tmpfile, pythontex)
 
     finally:
         if delete_temps:
@@ -135,16 +133,16 @@ def gen_files(values, keys, template, delete_temps, pythontex):
                 shutil.rmtree(path, onerror=remove_readonly)
 
 
-def compile_files(values, tmpfile, pythontex=True):
+def compile_files(tmpfile, pythontex=False):
     """
-    Generates the Questions and Answers documents for a student
+    Generates the quiz question document for a student
 
     Parameters
     ----------
-    values : tuple of string
-        Contains student's data: Moodle ID, Full Name, Student ID.
     tmpfile : string
         Name of the temporary files.
+    pythontex : bool
+        If pythontex compilation is required.
 
     Returns
     -------
@@ -171,34 +169,6 @@ def compile_files(values, tmpfile, pythontex=True):
     if pythontex:
         subprocess.call(cmd_pythontex, shell=True)
         subprocess.call(cmd_pdflatex, shell=True)
-
-    # file_mask = params.file_mask
-    # folder_mask = params.folder_mask
-    # if not args.generic:
-    #     file_mask += params.sol_stem
-
-    # move_pdf(
-    #     tmpfile, params.root, demask(values, file_mask), demask(values, folder_mask)
-    # )
-
-    # if params.gen_paper and not params.generic:
-    #     # Compile test only, removing solutions
-    #     set_hidden(tmpfile + ".tex", hidden=True)
-
-    #     # Now compile LaTeX ONLY (to avoid generating any new random variables)
-    #     # Do it twice to update toc
-    #     subprocess.call(cmd_pdflatex, shell=True)
-    #     subprocess.call(cmd_pdflatex, shell=True)
-
-    #     # reset file mask
-    #     file_mask = params.file_mask + params.paper_stem
-
-    #     move_pdf(
-    #         tmpfile,
-    #         params.questdir,
-    #         demask(values, file_mask),
-    #         demask(values, folder_mask),
-    #     )
 
 
 def render_file(values, keys, template, tmpfile):
@@ -283,7 +253,7 @@ def main(args):
         keys=keys,
         template=template,
         delete_temps=args.delete_temps,
-        pythontex=args.simple,
+        pythontex=args.pythontex,
     )
 
     # Now merge the generated XML files
@@ -299,7 +269,10 @@ def main(args):
     pass
 
 
-if __name__ == "__main__":
+def cli():
+    """
+    Command Line Interface for running as script or as command
+    """
     parser = argparse.ArgumentParser(
         description="Generate XML file for import as a Moodle Quiz, \
          using a LaTeX template and input csv"
@@ -318,21 +291,25 @@ if __name__ == "__main__":
     parser.add_argument(
         "-d",
         "--delete_temps",
-        help="Whether or not to delete temporary files",
+        help="Do not delete temporary files",
         required=False,
         default=True,
         action="store_false",
     )
 
     parser.add_argument(
-        "-s",
-        "--simple",
-        help="Whether or not template file requires pythontex",
+        "-p",
+        "--pythontex",
+        help="Execute compilation twice if pythontex code included in file",
         required=False,
-        default=True,
+        default=False,
         action="store_false",
     )
 
     args = parser.parse_args()
 
     main(args)
+
+
+if __name__ == "__main__":
+    cli()
