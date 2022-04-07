@@ -21,10 +21,8 @@ This will install `genquiz` as a command into your system.
 ## Typical Usage
 
 ```bash
-genquiz [template].tex [database].csv  -s
+genquiz [template].tex [database].csv
 ```
-
--s is an indicator to say that there is no pythontex variables in the template.
 
 To see all arguments, run `genquiz --help`.
 
