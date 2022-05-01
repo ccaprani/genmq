@@ -9,6 +9,7 @@ import argparse
 
 import tempfile
 import time
+from pathlib import Path
 import glob
 import os
 import jinja2  # https://tug.org/tug2019/slides/slides-ziegenhagen-python.pdf
@@ -16,6 +17,9 @@ import shutil
 import subprocess
 import stat
 import pandas as pd
+import re
+
+tempxmlfiles = []
 
 
 def remove_readonly(func, path):
@@ -151,7 +155,7 @@ def compile_files(tmpfile, pythontex=False):
     """
 
     # Compilation commands
-    cmd_stem = " %s.tex" % tmpfile
+    cmd_stem = f" {tmpfile}.tex"
     cmd_pdflatex = (
         "pdflatex -shell-escape -synctex=1"  # -enable-write18"
         + "-interaction=nonstopmode"
@@ -169,6 +173,8 @@ def compile_files(tmpfile, pythontex=False):
     if pythontex:
         subprocess.call(cmd_pythontex, shell=True)
         subprocess.call(cmd_pdflatex, shell=True)
+
+    tempxmlfiles.append(tmpfile + "-moodle.xml")
 
 
 def render_file(values, keys, template, tmpfile):
@@ -197,21 +203,26 @@ def render_file(values, keys, template, tmpfile):
     document = template.render(**options)
 
     # Here we must swap the draft mode of the Moodle.sty compilation
-    document = document.replace(r"\usepackage[draft]{moodle}", r"\usepackage{moodle}")
+    # document = document.replace(r"\usepackage[draft]{moodle}", r"\usepackage{moodle}")
+    p = re.compile(r"(^\\usepackage\S+)draft(\S+{moodle}$)", re.MULTILINE)
+    document = p.sub(r"\1\2", document)
+    # In case of empty options remaining
+    document = document.replace(r"\usepackage[]{moodle}", r"\usepackage{moodle}")
 
     # write document
     with open(tmpfile + ".tex", "w", encoding="utf-8") as outfile:
         outfile.write(document)
 
 
-def merge_xml(delete_temps):
+def merge_xml(delete_temps, stem):
     """
     Merges all the Moodle quiz xml files in the folder into one, saves the
     merged file, and deletes the temporary files.
     """
 
-    # Find all xml files in the folder - ASSUMES no other xml files
-    xml_files = glob.glob("*.xml")
+    # Parse the created XML files
+    # xml_files = glob.glob("*.xml")
+    xml_files = tempxmlfiles
     roots = [ET.parse(f).getroot() for f in xml_files]
     base = roots[0]
     for r in roots[1:]:
@@ -220,7 +231,7 @@ def merge_xml(delete_temps):
                 base.append(el)
 
     base_xml = ET.ElementTree(base)
-    base_xml.write("genquiz-moodle.xml", encoding="utf-8", xml_declaration=True)
+    base_xml.write(f"{stem}.xml", encoding="utf-8", xml_declaration=True)
 
     if delete_temps:
         # Now delete the xml files except for the new one
@@ -229,6 +240,25 @@ def merge_xml(delete_temps):
             os.remove(f)
 
     pass
+
+
+def clean_xml_files(warn):
+    """
+    Remove any XML files already in the folder
+    """
+
+    def confirm_prompt(question: str) -> bool:
+        reply = None
+        while reply not in ("", "y", "n"):
+            reply = input(f"{question} (Y/n): ").lower()
+        return reply in ("", "y")
+
+    for f in glob.glob(".xml"):
+        delete = True
+        if warn:
+            delete = confirm_prompt(f"Delete {f}?")
+        if delete:
+            os.remove(f)
 
 
 def main(args):
@@ -240,14 +270,21 @@ def main(args):
 
     """
 
+    # clean_xml_files(args.warn)
+    tempxmlfiles = []
+
     t = time.time()
 
+    # Would be better here to use Path(args.template).resolve() to get the abs
+    # path on the file system to all passed-in arguments
     template = make_template(args.template)
 
     df, keys = generic(args.csvfile)
 
+    df_gq = df if args.number is None else df.iloc[: args.number, :]
+
     # Apply function to each row of df
-    df.apply(
+    df_gq.apply(
         gen_files,
         axis=1,
         keys=keys,
@@ -257,13 +294,13 @@ def main(args):
     )
 
     # Now merge the generated XML files
-    merge_xml(args.delete_temps)
+    merge_xml(args.delete_temps, Path(args.template).stem)
 
     print("")
     print("*** genquiz has finished ***")
     print(
         "Execution for %d questions generated in %2.0f sec"
-        % (len(df.index), time.time() - t)
+        % (len(df_gq.index), time.time() - t)
     )
 
     pass
@@ -288,6 +325,7 @@ def cli():
         "csvfile",
         help="CSV file containing the named variables for the jinja2 template",
     )
+
     parser.add_argument(
         "-d",
         "--delete_temps",
@@ -298,11 +336,28 @@ def cli():
     )
 
     parser.add_argument(
+        "-n",
+        "--number",
+        help="Compile the first n questions in the database",
+        required=False,
+        type=int,
+    )
+
+    parser.add_argument(
         "-p",
         "--pythontex",
         help="Execute compilation twice if pythontex code included in file",
         required=False,
         default=False,
+        action="store_false",
+    )
+
+    parser.add_argument(
+        "-w",
+        "--warn",
+        help="Warn before overwriting a previous genquiz-moodle.xml file",
+        required=False,
+        default=True,
         action="store_false",
     )
 
