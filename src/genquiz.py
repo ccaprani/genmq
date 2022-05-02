@@ -16,6 +16,7 @@ import jinja2  # https://tug.org/tug2019/slides/slides-ziegenhagen-python.pdf
 import shutil
 import subprocess
 import stat
+from tqdm import tqdm
 import pandas as pd
 import re
 
@@ -92,7 +93,7 @@ def generic(csvfile):
     return df, keys
 
 
-def gen_files(values, keys, template, delete_temps, pythontex):
+def gen_files(values, keys, template, delete_temps, pythontex, logfile):
     """
     Drives the rendering and compilation process for each row, and
     cleans up the files afterwards.
@@ -107,6 +108,10 @@ def gen_files(values, keys, template, delete_temps, pythontex):
         set to render the LaTeX file.
     tmpfile : string
         Name of the temporary files.
+    delete_temps: bool
+        Pass-through argument
+    logfile: bool
+        Pass-through argument
 
     Returns
     -------
@@ -121,7 +126,7 @@ def gen_files(values, keys, template, delete_temps, pythontex):
     render_file(values, keys, template, tmpfile)
 
     try:
-        compile_files(tmpfile, pythontex)
+        compile_files(tmpfile, pythontex, logfile)
 
     finally:
         if delete_temps:
@@ -137,7 +142,7 @@ def gen_files(values, keys, template, delete_temps, pythontex):
                 shutil.rmtree(path, onerror=remove_readonly)
 
 
-def compile_files(tmpfile, pythontex=False):
+def compile_files(tmpfile, pythontex=False, logfile=False):
     """
     Generates the quiz question document for a student
 
@@ -147,6 +152,8 @@ def compile_files(tmpfile, pythontex=False):
         Name of the temporary files.
     pythontex : bool
         If pythontex compilation is required.
+    logfile : bool
+        If recording the LaTeX output
 
     Returns
     -------
@@ -168,11 +175,21 @@ def compile_files(tmpfile, pythontex=False):
 
     # Compile full document including solutions
     # This step generates the variables & solutions
-    # SHould update to use the Popen function, and evaluate the returned args
-    subprocess.call(cmd_pdflatex, shell=True)
+    # Should update to use the Popen function, and evaluate the returned args
+    output = subprocess.run(cmd_pdflatex, shell=True, capture_output=True)
+    if logfile:
+        with open("genquiz.log", "wb") as outfile:
+            outfile.write(output.stdout)
+
     if pythontex:
-        subprocess.call(cmd_pythontex, shell=True)
-        subprocess.call(cmd_pdflatex, shell=True)
+        output = subprocess.run(cmd_pythontex, shell=True, capture_output=True)
+        if logfile:
+            with open("gq_pythontex.log", "wb") as outfile:
+                outfile.write(output.stdout)
+        output = subprocess.run(cmd_pdflatex, shell=True, capture_output=True)
+        if logfile:
+            with open("gq_post_pythontex.log", "wb") as outfile:
+                outfile.write(output.stdout)
 
     tempxmlfiles.append(tmpfile + "-moodle.xml")
 
@@ -283,14 +300,18 @@ def main(args):
 
     df_gq = df if args.number is None else df.iloc[: args.number, :]
 
+    # Create the progress bar
+    tqdm.pandas()
+
     # Apply function to each row of df
-    df_gq.apply(
+    df_gq.progress_apply(
         gen_files,
         axis=1,
         keys=keys,
         template=template,
         delete_temps=args.delete_temps,
         pythontex=args.pythontex,
+        logfile=args.log,
     )
 
     # Now merge the generated XML files
@@ -359,6 +380,15 @@ def cli():
         required=False,
         default=True,
         action="store_false",
+    )
+
+    parser.add_argument(
+        "-l",
+        "--log",
+        help="Log the LaTeX output to file",
+        required=False,
+        default=False,
+        action="store_true",
     )
 
     args = parser.parse_args()
