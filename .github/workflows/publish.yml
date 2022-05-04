@@ -44,8 +44,8 @@ jobs:
     - name: Publish distribution 📦 to PyPI
       uses: pypa/gh-action-pypi-publish@v1.5.0
       with:
-        # password: ${{ secrets.PYPI_API_TOKEN_GENMQ }}
+        password: ${{ secrets.PYPI_API_TOKEN_GENMQ_TEMP }}
         # remove following once testing complete
-        user: __token__
-        password: ${{ secrets.TEST_PYPI_API_TOKEN_GENMQ }}
-        repository_url: https://test.pypi.org/legacy/
+        # user: __token__
+        # password: ${{ secrets.TEST_PYPI_API_TOKEN_GENMQ }}
+        # repository_url: https://test.pypi.org/legacy/
