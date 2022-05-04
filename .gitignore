@@ -131,3 +131,5 @@ dmypy.json
 # Bespoke
 tags
 .gz
+split_xml.py
+*.synctex.gz
