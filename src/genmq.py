@@ -339,7 +339,7 @@ class Splitter:
         for q in tqdm(q_list, desc="Creating XML files"):
             working_root.append(q)
             qidx += 1
-            if qidx > q_per_file:
+            if (qidx > q_per_file) or (fidx == n_files - 1):
                 fidx += 1
                 self.write_xml_file(
                     working_root, f"{self.xmlfile.name}-{fidx}.xml", fidx, qidx
