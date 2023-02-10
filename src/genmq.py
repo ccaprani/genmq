@@ -35,6 +35,7 @@ class GenMoodleQuiz:
         self.templatefile = args.template
         self.csvfile = args.csvfile
         self.compile_number = args.number
+        self.compile_index = args.index
         self.delete_temps = args.delete_temps
         self.pythontex = args.pythontex
         self.logfile = args.log
@@ -56,7 +57,13 @@ class GenMoodleQuiz:
         self.jinja_template = self.make_template(self.templatefile)
         df, keys = self.generic(self.csvfile)
 
-        df_gq = df if self.compile_number is None else df.head(self.compile_number)
+        df_gq = df
+        if self.compile_number is not None:
+            df_gq = df.head(self.compile_number)
+        elif self.compile_index is not None:
+            i = abs(self.compile_index)
+            # double brackets to extract row as DataFrame not Series
+            df_gq = df.iloc[[i]]
 
         # Create the progress bar
         tqdm.pandas()
@@ -316,7 +323,7 @@ class Splitter:
         Initialize the file splitter params
         """
         self.xmlfile = Path(xmlfile)
-        self.maxfilesize = maxfilesize * 2 ** 20  # MB to bytes: 2^20 = 1 MB
+        self.maxfilesize = maxfilesize * 2**20  # MB to bytes: 2^20 = 1 MB
 
     def split_xml_file(self):
         filesize = self.xmlfile.stat().st_size
@@ -396,6 +403,13 @@ def cli():
         "-n",
         "--number",
         help="Compile the first n questions in the database",
+        type=int,
+    )
+
+    normalmodeargs.add_argument(
+        "-i",
+        "--index",
+        help="Compile the question at index i",
         type=int,
     )
 
