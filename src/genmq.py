@@ -76,7 +76,7 @@ class GenMoodleQuiz:
         )
 
         # Now merge the generated XML files
-        self.merge_xml(Path(self.templatefile).stem)
+        self.merge_xml(Path(self.templatefile).stem, self.tempxmlfiles)
 
         print("")
         print("*** genmq has finished ***")
@@ -268,14 +268,13 @@ class GenMoodleQuiz:
         with open(tmpfile + ".tex", "w", encoding="utf-8") as outfile:
             outfile.write(document)
 
-    def merge_xml(self, stem):
+    def merge_xml(self, xmlfilename, xml_files):
         """
         Merges all the Moodle quiz xml files in the folder into one, saves the
         merged file, and deletes the temporary files.
         """
 
         # Parse the created XML files
-        xml_files = self.tempxmlfiles
         roots = [ET.parse(f).getroot() for f in xml_files]
         base = roots[0]
         for r in roots[1:]:
@@ -284,7 +283,7 @@ class GenMoodleQuiz:
                     base.append(el)
 
         base_xml = ET.ElementTree(base)
-        base_xml.write(f"{stem}.xml", encoding="utf-8", xml_declaration=True)
+        base_xml.write(f"{xmlfilename}.xml", encoding="utf-8", xml_declaration=True)
 
         if self.delete_temps:
             # Now delete the xml files except for the new one
@@ -367,8 +366,14 @@ def cli():
     """
 
     normalmode = True
+    splitmode = False
+    mergemode = False
     if ("-s" or "--splitxml") in sys.argv:
         normalmode = False
+        splitmode = True
+    elif ("-m" or "--mergexml") in sys.argv:
+        normalmode = False
+        mergemode = True
 
     parser = argparse.ArgumentParser(
         description="Generate XML file for import as a Moodle Quiz, \
@@ -454,14 +459,30 @@ def cli():
         type=int,
     )
 
+    mergemodeargs = parser.add_argument_group("Merge XML files mode required arguments")
+    mergemodeargs.add_argument(
+        "-m",
+        "--mergexml",
+        help="Use: as genmq --mergexml [file] \
+                Merge all XML files in the current directory into a new [file]",
+        type=str,
+    )
     args = parser.parse_args()
 
     if normalmode:
         gmq = GenMoodleQuiz(args)
         gmq.run()
-    else:
+    elif splitmode:
         xml_splitter = Splitter(args.splitxml, args.maxfilesize)
         xml_splitter.split_xml_file()
+    elif mergemode:
+        xml_files = glob.glob("*.xml")
+        gmq = GenMoodleQuiz(args)
+        # if extension provided, strip it
+        filename = args.mergexml.rsplit(".", 1)[0]
+        gmq.merge_xml(filename, xml_files)
+    else:
+        print("Mode not recognized")
 
 
 if __name__ == "__main__":
