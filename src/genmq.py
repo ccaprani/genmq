@@ -317,45 +317,70 @@ class Splitter:
     A class to split a Moodle XML file into chunks
     """
 
-    def __init__(self, xmlfile, maxfilesize):
+    def __init__(self, xmlfile):
         """
         Initialize the file splitter params
         """
         self.xmlfile = Path(xmlfile)
-        self.maxfilesize = maxfilesize * 2**20  # MB to bytes: 2^20 = 1 MB
 
-    def split_xml_file(self):
-        filesize = self.xmlfile.stat().st_size
-        n_files = math.ceil(filesize / self.maxfilesize) + 1
-        print(f"Writing {n_files} files")
-
+    def read_xml_file(self):
         root = ET.parse(self.xmlfile).getroot()
         q_list = []
         for q in tqdm(root.findall("question"), desc="Parsing XML file"):
             if q.attrib["type"] != "category":
+                # print(q.find("./name/text").text)
                 q_list.append(q)
                 root.remove(q)
+
+        return root, q_list
+
+    def split_q_per_file(self, root, q_list, q_per_file, n_files):
+        working_root = copy.deepcopy(root)
+        qidx = 0
+        fidx = 1  # Initialize file index to 1
+        print(len(q_list))
+        for q in tqdm(q_list, desc="Creating XML files"):
+            working_root.append(q)
+            qidx += 1
+
+            # Check if it's time to create a new file
+            if qidx >= q_per_file:
+                self.write_xml_file(working_root, f"{self.xmlfile.stem}-{fidx}.xml")
+                working_root = copy.deepcopy(root)
+                qidx = 0
+                fidx += 1
+
+            # Check if the desired number of files have been written
+            if fidx > n_files:
+                break
+
+        # If there are remaining questions and the last file hasn't been emitted yet
+        if qidx > 0 and fidx <= n_files:
+            self.write_xml_file(working_root, f"{self.xmlfile.stem}-{fidx}.xml")
+
+    def split_by_number(self, number_q, number_f=1):
+        """
+        Writes the first 'number' of questions to a new XML file
+        """
+        root, q_list = self.read_xml_file()
+
+        self.split_q_per_file(root, q_list, number_q, number_f)
+
+    def split_by_size(self, maxfilesize):
+        root, q_list = self.read_xml_file()
+
+        maxfilesize *= 2**20  # MB to bytes: 2^20 = 1 MB
+        filesize = self.xmlfile.stat().st_size
+        n_files = math.ceil(filesize / maxfilesize)
+        print(f"Writing {n_files} files")
+
         total_no_questions = len(q_list)
         q_per_file = math.floor(total_no_questions / n_files)
         print(f"Approx. no. of questions per file: {q_per_file}")
 
-        working_root = copy.deepcopy(root)
-        qidx = 0
-        fidx = 0
-        for q in tqdm(q_list, desc="Creating XML files"):
-            working_root.append(q)
-            qidx += 1
-            if (qidx > q_per_file) or (fidx == n_files - 1):
-                fidx += 1
-                self.write_xml_file(
-                    working_root, f"{self.xmlfile.name}-{fidx}.xml", fidx, qidx
-                )
-                working_root = copy.deepcopy(root)
-                qidx = 0
-        self.write_xml_file(working_root, f"{self.xmlfile.name}-{fidx}.xml", fidx, qidx)
+        self.split_q_per_file(root, q_list, q_per_file, n_files)
 
-    def write_xml_file(self, tree, fname, fidx, qidx):
-        # print(f"Writing file {fidx} with {qidx+1} questions")
+    def write_xml_file(self, tree, fname):
         base_xml = ET.ElementTree(tree)
         base_xml.write(fname, encoding="utf-8", xml_declaration=True)
 
@@ -446,8 +471,10 @@ def cli():
     splitmodeargs.add_argument(
         "-s",
         "--splitxml",
-        help="Use: as genmq --splitxml [file] -z [x] \
-                Split the XML [file] into chunks smaller than [x] MB",
+        help="Use: as genmq -s [file] -z [x] \
+                Split the XML [file] into chunks smaller than [x] MB \
+              or use as genmq -s [file] -q [qcount] -f [fcount]\
+                to put qcount questions into each of fcount files",
         type=str,
     )
 
@@ -456,6 +483,24 @@ def cli():
         "--maxfilesize",
         help="The maximum file size (MB) of the XML chunks (default = 20 MB)",
         default=20,
+        type=int,
+    )
+
+    splitmodeargs.add_argument(
+        "-q",
+        "--splitqsperfile",
+        help="Extract this number of questions into each file (default is 100)",
+        nargs="?",
+        const=100,
+        type=int,
+    )
+
+    splitmodeargs.add_argument(
+        "-f",
+        "--splitnofiles",
+        help="Split by putting -q questions each into this number of files (default is 1)",
+        nargs="?",
+        const=1,
         type=int,
     )
 
@@ -473,8 +518,11 @@ def cli():
         gmq = GenMoodleQuiz(args)
         gmq.run()
     elif splitmode:
-        xml_splitter = Splitter(args.splitxml, args.maxfilesize)
-        xml_splitter.split_xml_file()
+        xml_splitter = Splitter(args.splitxml)
+        if args.splitqsperfile is not None:
+            xml_splitter.split_by_number(args.splitqsperfile, args.splitnofiles)
+        else:
+            xml_splitter.split_by_size(args.maxfilesize)
     elif mergemode:
         xml_files = glob.glob("*.xml")
         gmq = GenMoodleQuiz(args)

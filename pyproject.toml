@@ -1,3 +1,53 @@
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "genmq"
+version = "0.6.0"
+description = "Moodle quiz generator"
+keywords = ["moodle", "quiz", "question bank"]
+authors = [{name = "Colin Caprani", email = "colin.caprani@monash.edu"}]
+license = {text = "GNU General Public License v3.0" }
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Topic :: Education :: Computer Aided Instruction (CAI)",
+    "Environment :: Console",
+    "Intended Audience :: Education",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Natural Language :: English",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9"
+]
+requires-python = ">=3.8"
+
+[project.scripts]
+genmq = "genmq:cli"
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.urls]
+Homepage = "https://ccaprani.github.io/genmq/"
+Documentation = "https://ccaprani.github.io/genmq/"
+Source = "https://github.com/ccaprani/genmq/"
+Tracker = "https://github.com/ccaprani/genmq/issues/"
+
+[tool.setuptools]
+platforms = ["any"]
+include-package-data = true
+license-files = ["LICENSE"]
+
+[options]
+package_dir = {'' = 'src'}
+
+[options.packages.find]
+where = "src"
+
+[bdist_wheel]
+universal = 1
