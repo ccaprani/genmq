@@ -366,16 +366,21 @@ class Splitter:
 
         self.split_q_per_file(root, q_list, number_q, number_f)
 
-    def split_by_size(self, maxfilesize):
+    def split_by_size(self, maxfilesize, nfiles=None):
         root, q_list = self.read_xml_file()
 
         maxfilesize *= 2**20  # MB to bytes: 2^20 = 1 MB
         filesize = self.xmlfile.stat().st_size
-        n_files = math.ceil(filesize / maxfilesize)
+        max_n_files = math.ceil(filesize / maxfilesize)
+        if nfiles is not None and nfiles > 0:
+            n_files = min(max_n_files, nfiles)
+            print(f"{nfiles=}, {n_files=}, {max_n_files=}, {maxfilesize=}")
+        else:
+            n_files = max_n_files
         print(f"Writing {n_files} files")
 
         total_no_questions = len(q_list)
-        q_per_file = math.floor(total_no_questions / n_files)
+        q_per_file = math.floor(total_no_questions / max_n_files)
         print(f"Approx. no. of questions per file: {q_per_file}")
 
         self.split_q_per_file(root, q_list, q_per_file, n_files)
@@ -498,8 +503,9 @@ def cli():
     splitmodeargs.add_argument(
         "-f",
         "--splitnofiles",
-        help="Split by putting -q questions each into this number of files (default is 1)",
+        help="Limit splitting to this number of files (default is 1)",
         nargs="?",
+        default=None,
         const=1,
         type=int,
     )
@@ -520,9 +526,10 @@ def cli():
     elif splitmode:
         xml_splitter = Splitter(args.splitxml)
         if args.splitqsperfile is not None:
-            xml_splitter.split_by_number(args.splitqsperfile, args.splitnofiles)
+            nfiles = 1 if args.splitnofiles is None else args.splitnofiles
+            xml_splitter.split_by_number(args.splitqsperfile, nfiles)
         else:
-            xml_splitter.split_by_size(args.maxfilesize)
+            xml_splitter.split_by_size(args.maxfilesize, args.splitnofiles)
     elif mergemode:
         xml_files = glob.glob("*.xml")
         gmq = GenMoodleQuiz(args)
