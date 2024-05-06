@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "genmq"
-version = "0.6.1"
+version = "0.6.2"
 description = "Moodle quiz generator"
 keywords = ["moodle", "quiz", "question bank"]
 authors = [{name = "Colin Caprani", email = "colin.caprani@monash.edu"}]

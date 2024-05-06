@@ -61,7 +61,7 @@ class GenMoodleQuiz:
         if self.compile_number is not None:
             df_gq = df.head(self.compile_number)
         elif self.compile_index is not None:
-            i = abs(self.compile_index)
+            i = abs(self.compile_index-1)  # Zero based indexing in dataframe
             # double brackets to extract row as DataFrame not Series
             df_gq = df.iloc[[i]]
 
